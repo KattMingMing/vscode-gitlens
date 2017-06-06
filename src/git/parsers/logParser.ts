@@ -3,7 +3,13 @@ import { Range } from 'vscode';
 import { Git, GitCommitType, GitLogCommit, GitStatusFileStatus, IGitAuthor, IGitLog, IGitStatusFile } from './../git';
 // import { Logger } from '../../logger';
 import * as moment from 'moment';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 interface ILogEntry {
     sha: string;
@@ -61,7 +67,7 @@ export class GitLogParser {
             switch (lineParts[0]) {
                 case 'author':
                     entry.author = Git.isUncommitted(entry.sha)
-                        ? 'Uncommitted'
+                        ? 'You'
                         : lineParts.slice(1).join(' ').trim();
                     break;
 

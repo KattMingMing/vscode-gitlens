@@ -2,7 +2,13 @@
 import { Uri } from 'vscode';
 import { GitCommit, GitCommitType, IGitCommitLine } from './commit';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class GitLogCommit extends GitCommit {
 

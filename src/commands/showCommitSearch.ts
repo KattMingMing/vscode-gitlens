@@ -5,7 +5,7 @@ import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
-import { paste } from 'copy-paste';
+// import { paste } from 'copy-paste';
 
 const searchByRegex = /^([@:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
@@ -45,12 +45,12 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                             args.search = `#${blameLine.commit.shortSha}`;
                         }
                     }
-
-                    if (!args.search) {
-                        args.search = await new Promise<string>((resolve, reject) => {
-                            paste((err: Error, content: string) => resolve(err ? '' : content));
-                        });
-                    }
+                    // // PATCH(sourcegraph): Remove copy paste
+                    // if (!args.search) {
+                    //     args.search = await new Promise<string>((resolve, reject) => {
+                    //         paste((err: Error, content: string) => resolve(err ? '' : content));
+                    //     });
+                    // }
                 }
             }
             catch (ex) {

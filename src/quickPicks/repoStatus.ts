@@ -4,7 +4,13 @@ import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from
 import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
 import { GitService, GitStatusFile, GitUri, IGitStatus } from '../gitService';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 

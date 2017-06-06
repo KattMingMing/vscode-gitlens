@@ -2,7 +2,7 @@
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorTracker } from '../activeEditorTracker';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { TextEditorComparer, UriComparer } from '../comparers';
+import { textEditorComparer, uriComparer } from '../comparers';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
 
@@ -37,7 +37,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
             do {
                 if (editor !== undefined) {
                     if ((editor.document !== undefined && editor.document.isDirty) ||
-                        args.uris.some(_ => UriComparer.equals(_, editor!.document && editor!.document.uri))) {
+                        args.uris.some(_ => uriComparer.equals(_, editor!.document && editor!.document.uri))) {
                         // If we didn't start with a valid editor, set one once we find it
                         if (active === undefined) {
                             active = editor;
@@ -57,7 +57,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                     }
                     editor = await editorTracker.awaitClose(500);
                 }
-            } while ((active === undefined && editor === undefined) || !TextEditorComparer.equals(active, editor, { useId: true, usePosition: true }));
+            } while ((active === undefined && editor === undefined) || !textEditorComparer.equals(active!, editor, { useId: true, usePosition: true }));
 
             editorTracker.dispose();
 

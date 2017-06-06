@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from '../commands';
-import { TextDocumentComparer } from '../comparers';
+import { textDocumentComparer } from '../comparers';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
@@ -69,7 +69,7 @@ export class GitContextTracker extends Disposable {
     }
 
     private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e && e.document)) return;
+        if (!this._editor || !textDocumentComparer.equals(this._editor.document, e && e.document)) return;
 
         // Can't unsubscribe here because undo doesn't trigger any other event
         // this._unsubscribeToDocumentChanges();
@@ -80,7 +80,7 @@ export class GitContextTracker extends Disposable {
     }
 
     private _onTextDocumentSaved(e: TextDocument) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
+        if (!this._editor || !textDocumentComparer.equals(this._editor && this._editor.document, e)) return;
 
         // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
         // this._subscribeToDocumentChanges();

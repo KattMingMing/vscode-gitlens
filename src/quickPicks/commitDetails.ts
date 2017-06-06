@@ -6,7 +6,13 @@ import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickIt
 import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitLog, IGitStatusFile, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
 

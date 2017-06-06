@@ -4,7 +4,13 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface DiffWithWorkingCommandArgs {
     commit?: GitCommit;

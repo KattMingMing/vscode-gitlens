@@ -7,7 +7,7 @@ let _reporter: TelemetryReporter;
 export class Telemetry extends Disposable {
 
     static configure(key: string) {
-        if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
+        if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', false)) return;
 
         _reporter = new TelemetryReporter(key);
     }

@@ -2,21 +2,27 @@
 import { Iterables, Objects } from './system';
 import { Disposable, Event, EventEmitter, ExtensionContext, FileSystemWatcher, languages, Location, Position, Range, TextDocument, TextDocumentChangeEvent, TextEditor, Uri, workspace } from 'vscode';
 import { CommandContext, setCommandContext } from './commands';
-import { CodeLensVisibility, IConfig } from './configuration';
+import { IConfig } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
+import { Git, GitBlameParser, GitBranch, GitCommit, GitDiffParser, GitLogCommit, GitLogParser, GitRemote, GitStashParser, GitStatusFile, GitStatusParser, IGit, IGitAuthor, IGitBlame, IGitBlameLine, IGitBlameLines, IGitDiff, IGitDiffLine, IGitLog, IGitStash, IGitStatus, setDefaultEncoding } from './git/git';
 import { GitUri, IGitCommitInfo, IGitUriData } from './git/gitUri';
 import { GitCodeLensProvider } from './gitCodeLensProvider';
 import { Logger } from './logger';
 import * as fs from 'fs';
-import * as ignore from 'ignore';
 import * as moment from 'moment';
-import * as path from 'path';
+import * as pathModule from 'path';
 
 export { GitUri, IGitCommitInfo };
 export * from './git/models/models';
+export * from './git/formatters/commit';
 export { getNameFromRemoteResource, RemoteResource, RemoteProvider } from './git/remotes/provider';
 export * from './git/gitContextTracker';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from './path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 class UriCacheEntry {
 
@@ -86,7 +92,7 @@ export class GitService extends Disposable {
     private _codeLensProviderDisposable: Disposable | undefined;
     private _disposable: Disposable | undefined;
     private _fsWatcher: FileSystemWatcher | undefined;
-    private _gitignore: Promise<ignore.Ignore>;
+    // private _gitignore: Promise<ignore.Ignore>;
 
     static EmptyPromise: Promise<IGitBlame | IGitDiff | IGitLog | undefined> = Promise.resolve(undefined);
 
@@ -139,7 +145,7 @@ export class GitService extends Disposable {
 
         if (codeLensChanged) {
             Logger.log('CodeLens config changed; resetting CodeLens provider');
-            if (cfg.codeLens.visibility === CodeLensVisibility.Auto && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
+            if (cfg.codeLens.enabled && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled)) {
                 if (this._codeLensProvider) {
                     this._codeLensProvider.reset();
                 }
@@ -154,7 +160,7 @@ export class GitService extends Disposable {
                 this._codeLensProvider = undefined;
             }
 
-            setCommandContext(CommandContext.CanToggleCodeLens, cfg.codeLens.visibility !== CodeLensVisibility.Off && (cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled));
+            setCommandContext(CommandContext.CanToggleCodeLens, cfg.codeLens.recentChange.enabled || cfg.codeLens.authors.enabled);
         }
 
         if (advancedChanged) {
@@ -183,27 +189,27 @@ export class GitService extends Disposable {
                 this._remotesCache.clear();
             }
 
-            this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
-                if (!cfg.advanced.gitignore.enabled) {
-                    resolve(undefined);
-                    return;
-                }
+            // this._gitignore = new Promise<ignore.Ignore | undefined>((resolve, reject) => {
+            //     if (!cfg.advanced.gitignore.enabled) {
+            //         resolve(undefined);
+            //         return;
+            //     }
 
-                const gitignorePath = path.join(this.repoPath, '.gitignore');
-                fs.exists(gitignorePath, e => {
-                    if (e) {
-                        fs.readFile(gitignorePath, 'utf8', (err, data) => {
-                            if (!err) {
-                                resolve(ignore().add(data));
-                                return;
-                            }
-                            resolve(undefined);
-                        });
-                        return;
-                    }
-                    resolve(undefined);
-                });
-            });
+            //     const gitignorePath = path.join(this.repoPath, '.gitignore');
+            //     fs.exists(gitignorePath, e => {
+            //         if (e) {
+            //             fs.readFile(gitignorePath, 'utf8', (err, data) => {
+            //                 if (!err) {
+            //                     resolve(ignore().add(data));
+            //                     return;
+            //                 }
+            //                 resolve(undefined);
+            //             });
+            //             return;
+            //         }
+            //         resolve(undefined);
+            //     });
+            // });
         }
 
         this.config = cfg;
@@ -382,14 +388,14 @@ export class GitService extends Disposable {
     private async _getBlameForFile(uri: GitUri, entry: GitCacheEntry | undefined, key: string): Promise<IGitBlame | undefined> {
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
-        const ignore = await this._gitignore;
-        if (ignore && !ignore.filter([file]).length) {
-            Logger.log(`Skipping blame; '${uri.fsPath}' is gitignored`);
-            if (entry && entry.key) {
-                this._onDidBlameFail.fire(entry.key);
-            }
-            return await GitService.EmptyPromise as IGitBlame;
-        }
+        // const ignore = await this._gitignore;
+        // if (ignore && !ignore.filter([file]).length) {
+        //     Logger.log(`Skipping blame; '${uri.fsPath}' is gitignored`);
+        //     if (entry && entry.key) {
+        //         this._onDidBlameFail.fire(entry.key);
+        //     }
+        //     return await GitService.EmptyPromise as IGitBlame;
+        // }
 
         try {
             const data = await Git.blame(root, file, uri.sha);
@@ -644,13 +650,13 @@ export class GitService extends Disposable {
         }
     }
 
-    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[string | undefined, string | undefined] | undefined> {
+    async getDiffForLine(uri: GitUri, line: number, sha1?: string, sha2?: string): Promise<[IGitDiffLine | undefined, IGitDiffLine | undefined]> {
         try {
             const diff = await this.getDiffForFile(uri, sha1, sha2);
-            if (diff === undefined) return undefined;
+            if (diff === undefined) return [undefined, undefined];
 
             const chunk = diff.chunks.find(_ => _.currentStart <= line && _.currentEnd >= line);
-            if (chunk === undefined) return undefined;
+            if (chunk === undefined) return [undefined, undefined];
 
             // Search for the line (skipping deleted lines -- since they don't currently exist in the editor)
             // Keep track of the deleted lines for the original version
@@ -675,7 +681,7 @@ export class GitService extends Disposable {
             ];
         }
         catch (ex) {
-            return undefined;
+            return [undefined, undefined];
         }
     }
 
@@ -817,11 +823,11 @@ export class GitService extends Disposable {
     private async _getLogForFile(repoPath: string | undefined, fileName: string, sha: string | undefined, range: Range | undefined, maxCount: number | undefined, reverse: boolean, entry: GitCacheEntry | undefined, key: string): Promise<IGitLog | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
-        const ignore = await this._gitignore;
-        if (ignore && !ignore.filter([file]).length) {
-            Logger.log(`Skipping log; '${fileName}' is gitignored`);
-            return await GitService.EmptyPromise as IGitLog;
-        }
+        // const ignore = await this._gitignore;
+        // if (ignore && !ignore.filter([file]).length) {
+        //     Logger.log(`Skipping log; '${fileName}' is gitignored`);
+        //     return await GitService.EmptyPromise as IGitLog;
+        // }
 
         try {
             const data = await Git.log_file(root, file, sha, maxCount, reverse, range && range.start.line + 1, range && range.end.line + 1);
@@ -1008,8 +1014,7 @@ export class GitService extends Disposable {
     }
 
     toggleCodeLens(editor: TextEditor) {
-        if (this.config.codeLens.visibility === CodeLensVisibility.Off ||
-            (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled)) return;
+        if (!this.config.codeLens.recentChange.enabled && !this.config.codeLens.authors.enabled) return;
 
         Logger.log(`toggleCodeLens()`);
         if (this._codeLensProviderDisposable) {

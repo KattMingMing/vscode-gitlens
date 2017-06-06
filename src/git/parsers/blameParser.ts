@@ -1,7 +1,13 @@
 'use strict';
 import { Git, GitCommit, IGitAuthor, IGitBlame, IGitCommitLine } from './../git';
 import * as moment from 'moment';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 interface IBlameEntry {
     sha: string;
@@ -60,7 +66,7 @@ export class GitBlameParser {
             switch (lineParts[0]) {
                 case 'author':
                     entry.author = Git.isUncommitted(entry.sha)
-                        ? 'Uncommitted'
+                        ? 'You'
                         : lineParts.slice(1).join(' ').trim();
                     break;
 
