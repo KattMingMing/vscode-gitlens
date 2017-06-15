@@ -1,17 +1,21 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLogCommit, GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, CommitFileDetailsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
-import { Messages } from '../messages';
-import * as path from 'path';
+import * as pathModule from 'path';
 
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 export interface ShowQuickCommitFileDetailsCommandArgs {
     sha?: string;
     commit?: GitCommit | GitLogCommit;
-    fileLog?: GitLog;
+    fileLog?: IGitLog;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -38,12 +42,9 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
+                if (blame === undefined) return window.showWarningMessage(`Unable to show commit file details. File is probably not under source control`);
 
-                // Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
-                if (blame.commit.isUncommitted) return Messages.showLineUncommittedWarningMessage('Unable to show commit file details');
-
-                args.sha = blame.commit.sha;
+                args.sha = blame.commit.isUncommitted ? blame.commit.previousSha : blame.commit.sha;
 
                 args.commit = blame.commit;
                 workingFileName = path.relative(args.commit.repoPath, gitUri.fsPath);
@@ -69,12 +70,12 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (args.fileLog === undefined) {
-                    args.commit = await this.git.getLogCommit(args.commit === undefined ? gitUri.repoPath : args.commit.repoPath, gitUri.fsPath, args.sha, { previous: true });
-                    if (args.commit === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
+                    args.commit = await this.git.getLogCommit(args.commit ? args.commit.repoPath : gitUri.repoPath, gitUri.fsPath, args.sha, { previous: true });
+                    if (args.commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
                 }
             }
 
-            if (args.commit === undefined) return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
+            if (args.commit === undefined) return window.showWarningMessage(`Unable to show commit file details`);
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
             args.commit.workingFileName = workingFileName;

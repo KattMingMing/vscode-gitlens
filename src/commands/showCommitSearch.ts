@@ -3,10 +3,9 @@ import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
 import { GitRepoSearchBy, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
-import { paste } from 'copy-paste';
+// import { paste } from 'copy-paste';
 
 const searchByRegex = /^([@:#])/;
 const searchByMap = new Map<string, GitRepoSearchBy>([
@@ -34,7 +33,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         const gitUri = uri === undefined ? undefined : await GitUri.fromUri(uri, this.git);
 
         const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
-        if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show commit search`);
+        if (!repoPath) return window.showWarningMessage(`Unable to show commit search`);
 
         if (!args.search || args.searchBy == null) {
             try {
@@ -46,12 +45,12 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                             args.search = `#${blameLine.commit.shortSha}`;
                         }
                     }
-
-                    if (!args.search) {
-                        args.search = await new Promise<string>((resolve, reject) => {
-                            paste((err: Error, content: string) => resolve(err ? '' : content));
-                        });
-                    }
+                    // // PATCH(sourcegraph): Remove copy paste
+                    // if (!args.search) {
+                    //     args.search = await new Promise<string>((resolve, reject) => {
+                    //         paste((err: Error, content: string) => resolve(err ? '' : content));
+                    //     });
+                    // }
                 }
             }
             catch (ex) {

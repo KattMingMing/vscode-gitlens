@@ -1,15 +1,38 @@
 'use strict';
 import { Uri } from 'vscode';
 import { Git } from '../git';
-import { GitUri } from '../gitUri';
-import * as path from 'path';
+import * as pathModule from 'path';
 
-export interface GitAuthor {
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
+
+export interface IGitAuthor {
     name: string;
     lineCount: number;
 }
 
-export interface GitCommitLine {
+export interface IGitCommit {
+    type: GitCommitType;
+    repoPath: string;
+    sha: string;
+    fileName: string;
+    author?: string;
+    date: Date;
+    message: string;
+    lines: IGitCommitLine[];
+    originalFileName?: string;
+    previousSha?: string;
+    previousFileName?: string;
+
+    readonly isUncommitted: boolean;
+    previousUri: Uri;
+    uri: Uri;
+}
+
+export interface IGitCommitLine {
     sha: string;
     previousSha?: string;
     line: number;
@@ -19,10 +42,10 @@ export interface GitCommitLine {
 
 export type GitCommitType = 'blame' | 'branch' | 'file'  | 'stash';
 
-export class GitCommit {
+export class GitCommit implements IGitCommit {
 
     type: GitCommitType;
-    // lines: GitCommitLine[];
+    lines: IGitCommitLine[];
     originalFileName?: string;
     previousSha?: string;
     previousFileName?: string;
@@ -37,7 +60,7 @@ export class GitCommit {
         public author: string,
         public date: Date,
         public message: string,
-        // lines?: GitCommitLine[],
+        lines?: IGitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string
@@ -45,7 +68,7 @@ export class GitCommit {
         this.type = type;
         this.fileName = this.fileName && this.fileName.replace(/, ?$/, '');
 
-        // this.lines = lines || [];
+        this.lines = lines || [];
         this.originalFileName = originalFileName;
         this.previousSha = previousSha;
         this.previousFileName = previousFileName;
@@ -75,6 +98,9 @@ export class GitCommit {
     }
 
     getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
-        return GitUri.getFormattedPath(this.fileName, separator);
+        const directory = Git.normalizePath(path.dirname(this.fileName));
+        return (!directory || directory === '.')
+            ? path.basename(this.fileName)
+            : `${path.basename(this.fileName)}${separator}${directory}`;
     }
 }

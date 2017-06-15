@@ -3,7 +3,6 @@ import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface OpenChangedFilesCommandArgs {
     uris?: Uri[];
@@ -17,18 +16,16 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
 
     async execute(editor: TextEditor, uri?: Uri, args: OpenChangedFilesCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
-
         try {
             if (args.uris === undefined) {
                 const repoPath = await this.git.getRepoPathFromUri(uri);
-                if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open changed files`);
+                if (!repoPath) return window.showWarningMessage(`Unable to open changed files`);
 
                 const status = await this.git.getStatusForRepo(repoPath);
                 if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
 
                 args.uris = status.files.filter(_ => _.status !== 'D').map(_ => _.Uri);
             }
-
             for (const uri of args.uris) {
                 await openEditor(uri, { preserveFocus: true, preview: false } as TextDocumentShowOptions);
             }

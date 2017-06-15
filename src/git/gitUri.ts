@@ -2,7 +2,13 @@
 import { Uri } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { GitService, IGitStatusFile } from '../gitService';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class GitUri extends Uri {
 
@@ -16,7 +22,6 @@ export class GitUri extends Uri {
     constructor(uri?: Uri, commitOrRepoPath?: IGitCommitInfo | string) {
         super();
         if (!uri) return;
-
         const base = this as any;
         base._scheme = uri.scheme;
         base._authority = uri.authority;
@@ -37,7 +42,7 @@ export class GitUri extends Uri {
         }
         else if (commitOrRepoPath) {
             if (typeof commitOrRepoPath === 'string') {
-                this.repoPath = commitOrRepoPath;
+                this.repoPath = commitOrRepoPath.replace('repo://', '');
             }
             else {
                 const commit = commitOrRepoPath;
@@ -101,28 +106,6 @@ export class GitUri extends Uri {
         const repoPath = typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath;
         const uri = Uri.file(path.resolve(repoPath, original ? status.originalFileName || status.fileName : status.fileName));
         return new GitUri(uri, repoPathOrCommit);
-    }
-
-    static getDirectory(fileName: string): string {
-        const directory: string | undefined = GitService.normalizePath(path.dirname(fileName));
-        return (!directory || directory === '.') ? '' : directory;
-    }
-
-    static getFormattedPath(fileNameOrUri: string | Uri, separator: string = ' \u00a0\u2022\u00a0 '): string {
-        let fileName: string;
-        if (fileNameOrUri instanceof Uri) {
-            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(separator);
-
-            fileName = fileNameOrUri.fsPath;
-        }
-        else {
-            fileName = fileNameOrUri;
-        }
-
-        const directory = GitUri.getDirectory(fileName);
-        return !directory
-            ? path.basename(fileName)
-            : `${path.basename(fileName)}${separator}${directory}`;
     }
 }
 

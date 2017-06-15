@@ -1,26 +1,19 @@
 'use strict';
 import { Functions, Objects } from './system';
 import { DecorationOptions, DecorationRenderOptions, Disposable, ExtensionContext, Range, StatusBarAlignment, StatusBarItem, TextEditor, TextEditorDecorationType, TextEditorSelectionChangeEvent, window, workspace } from 'vscode';
-import { AnnotationController, FileAnnotationType } from './annotations/annotationController';
+import { AnnotationController } from './annotations/annotationController';
 import { Annotations, endOfLineIndex } from './annotations/annotations';
 import { Commands } from './commands';
-import { TextEditorComparer } from './comparers';
-import { IConfig, StatusBarCommand } from './configuration';
+import { textEditorComparer } from './comparers';
+import { FileAnnotationType, IConfig, LineAnnotationType, StatusBarCommand } from './configuration';
 import { DocumentSchemes, ExtensionKey } from './constants';
-import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitCommitLine, GitContextTracker, GitService, GitUri } from './gitService';
+import { BlameabilityChangeEvent, CommitFormatter, GitCommit, GitContextTracker, GitService, GitUri, IGitCommitLine } from './gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
-        margin: '0 0 0 3em',
-        textDecoration: 'none'
+        margin: '0 0 0 4em'
     }
 } as DecorationRenderOptions);
-
-export type LineAnnotationType = 'trailing' | 'hover';
-export const LineAnnotationType = {
-    Trailing: 'trailing' as LineAnnotationType,
-    Hover: 'hover' as LineAnnotationType
-};
 
 export class CurrentLineController extends Disposable {
 
@@ -30,14 +23,12 @@ export class CurrentLineController extends Disposable {
     private _currentLine: number = -1;
     private _disposable: Disposable;
     private _editor: TextEditor | undefined;
-    private _isAnnotating: boolean = false;
     private _statusBarItem: StatusBarItem | undefined;
     private _updateBlameDebounced: (line: number, editor: TextEditor) => Promise<void>;
     private _uri: GitUri;
 
     constructor(context: ExtensionContext, private git: GitService, private gitContextTracker: GitContextTracker, private annotationController: AnnotationController) {
         super(() => this.dispose());
-
         this._updateBlameDebounced = Functions.debounce(this._updateBlame, 250);
 
         this._onConfigurationChanged();
@@ -52,7 +43,7 @@ export class CurrentLineController extends Disposable {
     }
 
     dispose() {
-        this._clearAnnotations(this._editor, true);
+        this._editor && this._editor.setDecorations(annotationDecoration, []);
 
         this._activeEditorLineDisposable && this._activeEditorLineDisposable.dispose();
         this._statusBarItem && this._statusBarItem.dispose();
@@ -63,13 +54,15 @@ export class CurrentLineController extends Disposable {
         const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
 
         let changed = false;
-
+        console.log(`I am here!`);
         if (!Objects.areEquivalent(cfg.blame.line, this._config && this._config.blame.line) ||
             !Objects.areEquivalent(cfg.annotations.line.trailing, this._config && this._config.annotations.line.trailing) ||
             !Objects.areEquivalent(cfg.annotations.line.hover, this._config && this._config.annotations.line.hover) ||
             !Objects.areEquivalent(cfg.theme.annotations.line.trailing, this._config && this._config.theme.annotations.line.trailing)) {
             changed = true;
-            this._clearAnnotations(this._editor);
+            if (this._editor) {
+                this._editor.setDecorations(annotationDecoration, []);
+            }
         }
 
         if (!Objects.areEquivalent(cfg.statusBar, this._config && this._config.statusBar)) {
@@ -113,20 +106,19 @@ export class CurrentLineController extends Disposable {
     }
 
     private isEditorBlameable(editor: TextEditor | undefined): boolean {
-        if (editor === undefined || editor.document === undefined) return false;
-
-        if (!this.git.isTrackable(editor.document.uri)) return false;
-        if (editor.document.isUntitled && editor.document.uri.scheme === DocumentSchemes.File) return false;
-
+        if (!editor || !editor.document) return false;
         return this.git.isEditorBlameable(editor);
     }
 
     private async _onActiveTextEditorChanged(editor: TextEditor | undefined) {
         this._currentLine = -1;
-        this._clearAnnotations(this._editor);
+
+        const previousEditor = this._editor;
+        previousEditor && previousEditor.setDecorations(annotationDecoration, []);
 
         if (editor === undefined || !this.isEditorBlameable(editor)) {
             this.clear(editor);
+
             this._editor = undefined;
 
             return;
@@ -153,7 +145,7 @@ export class CurrentLineController extends Disposable {
         }
 
         // Make sure this is for the editor we are tracking
-        if (!TextEditorComparer.equals(this._editor, e.editor)) return;
+        if (!e.editor || !textEditorComparer.equals(this._editor, e.editor)) return;
 
         this._updateBlameDebounced(this._editor.selection.active.line, this._editor);
     }
@@ -168,18 +160,16 @@ export class CurrentLineController extends Disposable {
 
     private async _onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent): Promise<void> {
         // Make sure this is for the editor we are tracking
-        if (!this._blameable || !TextEditorComparer.equals(this._editor, e.textEditor)) return;
+        if (!this._blameable || !this._editor || !textEditorComparer.equals(this._editor, e.textEditor)) return;
 
         const line = e.selections[0].active.line;
         if (line === this._currentLine) return;
-
         this._currentLine = line;
 
-        if (!this._uri && e.textEditor !== undefined) {
+        if (!this._uri && e.textEditor) {
             this._uri = await GitUri.fromUri(e.textEditor.document.uri, this.git);
         }
 
-        this._clearAnnotations(e.textEditor);
         this._updateBlameDebounced(line, e.textEditor);
     }
 
@@ -187,7 +177,7 @@ export class CurrentLineController extends Disposable {
         line = line - this._uri.offset;
 
         let commit: GitCommit | undefined = undefined;
-        let commitLine: GitCommitLine | undefined = undefined;
+        let commitLine: IGitCommitLine | undefined = undefined;
         // Since blame information isn't valid when there are unsaved changes -- don't show any status
         if (this._blameable && line >= 0) {
             const blameLine = await this.git.getBlameForLine(this._uri, line);
@@ -196,37 +186,33 @@ export class CurrentLineController extends Disposable {
         }
 
         if (commit !== undefined && commitLine !== undefined) {
-            this.show(commit, commitLine, editor, line);
+            this.show(commit, commitLine, editor);
         }
         else {
             this.clear(editor);
         }
     }
 
-    async clear(editor: TextEditor | undefined) {
-        this._clearAnnotations(editor, true);
+    async clear(editor: TextEditor | undefined, previousEditor?: TextEditor) {
+        this._clearAnnotations(editor, previousEditor);
         this._statusBarItem && this._statusBarItem.hide();
     }
 
-    private async _clearAnnotations(editor: TextEditor | undefined, force: boolean = false) {
-        if (editor === undefined || (!this._isAnnotating && !force)) return;
-
-        editor.setDecorations(annotationDecoration, []);
-        this._isAnnotating = false;
-
-        if (!force) return;
-
+    private async _clearAnnotations(editor: TextEditor | undefined, previousEditor?: TextEditor) {
+        editor && editor.setDecorations(annotationDecoration, []);
         // I have no idea why the decorators sometimes don't get removed, but if they don't try again with a tiny delay
-        await Functions.wait(1);
-        editor.setDecorations(annotationDecoration, []);
+        if (editor !== undefined) {
+            await Functions.wait(1);
+            editor.setDecorations(annotationDecoration, []);
+        }
     }
 
-    async show(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line: number) {
+    async show(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
         // I have no idea why I need this protection -- but it happens
         if (editor.document === undefined) return;
 
         this._updateStatusBar(commit);
-        await this._updateAnnotations(commit, blameLine, editor, line);
+        await this._updateAnnotations(commit, blameLine, editor);
     }
 
     async showAnnotations(editor: TextEditor, type: LineAnnotationType) {
@@ -253,11 +239,11 @@ export class CurrentLineController extends Disposable {
         await this._updateBlame(editor.selection.active.line, editor);
     }
 
-    private async _updateAnnotations(commit: GitCommit, blameLine: GitCommitLine, editor: TextEditor, line?: number) {
+    private async _updateAnnotations(commit: GitCommit, blameLine: IGitCommitLine, editor: TextEditor) {
         const cfg = this._config.blame.line;
         if (!cfg.enabled) return;
 
-        line = line === undefined ? blameLine.line + this._uri.offset : line;
+        const line = blameLine.line + this._uri.offset;
 
         const decorationOptions: DecorationOptions[] = [];
 
@@ -291,7 +277,7 @@ export class CurrentLineController extends Disposable {
                     showDetailsInStartingWhitespace = true;
                 }
 
-                const decoration = Annotations.trailing(commit, cfgAnnotations.format, cfgAnnotations.dateFormat === null ? this._config.defaultDateFormat : cfgAnnotations.dateFormat, this._config.theme);
+                const decoration = Annotations.trailing(commit, cfgAnnotations.format, cfgAnnotations.dateFormat, this._config.theme);
                 decoration.range = editor.document.validateRange(new Range(line, endOfLineIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
@@ -359,30 +345,6 @@ export class CurrentLineController extends Disposable {
 
                     break;
                 }
-                case FileAnnotationType.RecentChanges: {
-                    const cfgChanges = this._config.annotations.file.recentChanges.hover;
-                    if (cfgChanges.details) {
-                        if (cfgChanges.wholeLine) {
-                            // Avoid double annotations if we are showing the whole-file hover blame annotations
-                            showDetails = false;
-                        }
-                        else {
-                            showDetailsInStartingWhitespace = false;
-                        }
-                    }
-
-                    if (cfgChanges.changes) {
-                        if (cfgChanges.wholeLine) {
-                            // Avoid double annotations if we are showing the whole-file hover blame annotations
-                            showChanges = false;
-                        }
-                        else {
-                            showChangesInStartingWhitespace = false;
-                        }
-                    }
-
-                    break;
-                }
             }
 
             if (showDetails) {
@@ -395,7 +357,7 @@ export class CurrentLineController extends Disposable {
                 // I have no idea why I need this protection -- but it happens
                 if (editor.document === undefined) return;
 
-                const decoration = Annotations.detailsHover(logCommit || commit, this._config.defaultDateFormat);
+                const decoration = Annotations.detailsHover(logCommit || commit);
                 decoration.range = editor.document.validateRange(new Range(line, showDetailsStartIndex, line, endOfLineIndex));
                 decorationOptions.push(decoration);
 
@@ -421,7 +383,6 @@ export class CurrentLineController extends Disposable {
 
         if (decorationOptions.length) {
             editor.setDecorations(annotationDecoration, decorationOptions);
-            this._isAnnotating = true;
         }
     }
 
@@ -429,7 +390,7 @@ export class CurrentLineController extends Disposable {
         const cfg = this._config.statusBar;
         if (!cfg.enabled || this._statusBarItem === undefined) return;
 
-        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat)}`;
+        this._statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, cfg.dateFormat)}`;
 
         switch (cfg.command) {
             case StatusBarCommand.BlameAnnotate:

@@ -1,14 +1,14 @@
 import { DecorationInstanceRenderOptions, DecorationOptions, ThemableDecorationRenderOptions } from 'vscode';
 import { IThemeConfig, themeDefaults } from '../configuration';
-import { CommitFormatter, GitCommit, GitDiffLine, GitService, GitUri, ICommitFormatOptions } from '../gitService';
+import { CommitFormatter, GitCommit, GitService, GitUri, ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
-interface IHeatmapConfig {
+export interface IHeatmapConfig {
     enabled: boolean;
     location?: 'left' | 'right';
 }
 
-interface IRenderOptions {
+export interface IRenderOptions {
     uncommittedForegroundColor?: {
         dark: string;
         light: string;
@@ -20,8 +20,6 @@ interface IRenderOptions {
 }
 
 export const endOfLineIndex = 1000000;
-const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
-// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 
 export class Annotations {
 
@@ -45,50 +43,15 @@ export class Annotations {
         return '#793738';
     }
 
-    static getHoverMessage(commit: GitCommit, dateFormat: string | null): string | string[] {
-        if (dateFormat === null) {
-            dateFormat = 'MMMM Do, YYYY h:MMa';
-        }
-
-        let message = '';
-        if (!commit.isUncommitted) {
-            message = commit.message
-                // Escape markdown
-                .replace(escapeMarkdownRegEx, '\\$&')
-                // Escape markdown header (since the above regex won't match it)
-                .replace(/^===/gm, '\u200b===')
-                // Keep under the same block-quote
-                .replace(/\n/g, '  \n');
-            message = `\n\n> ${message}`;
-        }
-        return `\`${commit.shortSha}\` &nbsp; __${commit.author}__, ${moment(commit.date).fromNow()} &nbsp; _(${moment(commit.date).format(dateFormat)})_${message}`;
-    }
-
-    static getHoverDiffMessage(commit: GitCommit, previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string | undefined {
-        if (previous === undefined && current === undefined) return undefined;
-
-        const codeDiff = this._getCodeDiff(previous, current);
-        return commit.isUncommitted
-            ? `\`Changes\` &nbsp; \u2014 &nbsp; _uncommitted_\n${codeDiff}`
-            : `\`Changes\` &nbsp; \u2014 &nbsp; \`${commit.previousShortSha}\` \u2194 \`${commit.shortSha}\`\n${codeDiff}`;
-    }
-
-    private static _getCodeDiff(previous: GitDiffLine | undefined, current: GitDiffLine | undefined): string {
-        return `\`\`\`
--  ${previous === undefined ? '' : previous.line.trim()}
-+  ${current === undefined ? '' : current.line.trim()}
-\`\`\``;
-    }
-
     static async changesHover(commit: GitCommit, line: number, uri: GitUri, git: GitService): Promise<DecorationOptions> {
         let message: string | undefined = undefined;
         if (commit.isUncommitted) {
             const [previous, current] = await git.getDiffForLine(uri, line + uri.offset);
-            message = this.getHoverDiffMessage(commit, previous, current);
+            message = CommitFormatter.toHoverDiff(commit, previous, current);
         }
         else if (commit.previousSha !== undefined) {
             const [previous, current] = await git.getDiffForLine(uri, line + uri.offset, commit.previousSha);
-            message = this.getHoverDiffMessage(commit, previous, current);
+            message = CommitFormatter.toHoverDiff(commit, previous, current);
         }
 
         return {
@@ -96,8 +59,8 @@ export class Annotations {
         } as DecorationOptions;
     }
 
-    static detailsHover(commit: GitCommit, dateFormat: string | null): DecorationOptions {
-        const message = this.getHoverMessage(commit, dateFormat);
+    static detailsHover(commit: GitCommit): DecorationOptions {
+        const message = CommitFormatter.toHoverAnnotation(commit);
         return {
             hoverMessage: message
         } as DecorationOptions;
@@ -114,7 +77,8 @@ export class Annotations {
                 before: {
                     ...renderOptions.before,
                     ...{
-                        contentText: content
+                        contentText: content,
+                        margin: '0 26px 0 0'
                     }
                 },
                 dark: {
@@ -149,9 +113,7 @@ export class Annotations {
             before: {
                 borderStyle: borderStyle,
                 borderWidth: borderWidth,
-                height: cfgFileTheme.separateLines ? 'calc(100% - 1px)' : '100%',
-                margin: '0 26px 0 0',
-                textDecoration: 'none'
+                height: cfgFileTheme.separateLines ? 'calc(100% - 1px)' : '100%'
             },
             dark: {
                 backgroundColor: cfgFileTheme.dark.backgroundColor || undefined,
@@ -161,12 +123,12 @@ export class Annotations {
                 backgroundColor: cfgFileTheme.light.backgroundColor || undefined,
                 color: cfgFileTheme.light.foregroundColor || themeDefaults.annotations.file.gutter.light.foregroundColor
             } as DecorationInstanceRenderOptions
-        } as IRenderOptions;
+        };
     }
 
-    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean, dateFormat: string | null): DecorationOptions {
+    static hover(commit: GitCommit, renderOptions: IRenderOptions, heatmap: boolean): DecorationOptions {
         return {
-            hoverMessage: this.getHoverMessage(commit, dateFormat),
+            hoverMessage: CommitFormatter.toHoverAnnotation(commit),
             renderOptions: heatmap ? { before: { ...renderOptions.before } } : undefined
         } as DecorationOptions;
     }
@@ -180,8 +142,7 @@ export class Annotations {
                 borderWidth: '0 0 0 2px',
                 contentText: '\u200B',
                 height: cfgTheme.annotations.file.hover.separateLines ? 'calc(100% - 1px)' : '100%',
-                margin: '0 26px 0 0',
-                textDecoration: 'none'
+                margin: '0 26px 0 0'
             }
         } as IRenderOptions;
     }

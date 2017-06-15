@@ -56,9 +56,9 @@ export namespace Objects {
         }
     }
 
-    export function* values<T>(o: any): IterableIterator<T> {
+    export function* values(o: any): IterableIterator<[any]> {
         for (const key in o) {
-            yield o[key];
+            yield [o[key]];
         }
     }
 }

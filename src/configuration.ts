@@ -1,19 +1,17 @@
 'use strict';
-import { FileAnnotationType } from './annotations/annotationController';
 import { Commands } from './commands';
-import { LineAnnotationType } from './currentLineController';
 import { OutputLevel } from './logger';
 
 export { ExtensionKey } from './constants';
 
-export type CodeLensCommand = 'gitlens.toggleFileBlame' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showFileHistory' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory';
+export type BlameLineHighlightLocations = 'gutter' | 'line' | 'overviewRuler';
+export const BlameLineHighlightLocations = {
+    Gutter: 'gutter' as BlameLineHighlightLocations,
+    Line: 'line' as BlameLineHighlightLocations,
+    OverviewRuler: 'overviewRuler' as BlameLineHighlightLocations
+};
+
+export type CodeLensCommand = 'gitlens.toggleFileBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.diffWithPrevious' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
 export const CodeLensCommand = {
     BlameAnnotate: Commands.ToggleFileBlame as CodeLensCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as CodeLensCommand,
@@ -33,23 +31,19 @@ export const CodeLensLocations = {
     Custom: 'custom' as CodeLensLocations
 };
 
-export type LineHighlightLocations = 'gutter' | 'line' | 'overviewRuler';
-export const LineHighlightLocations = {
-    Gutter: 'gutter' as LineHighlightLocations,
-    Line: 'line' as LineHighlightLocations,
-    OverviewRuler: 'overviewRuler' as LineHighlightLocations
+export type FileAnnotationType = 'gutter' | 'hover';
+export const FileAnnotationType = {
+    Gutter: 'gutter' as FileAnnotationType,
+    Hover: 'hover' as FileAnnotationType
 };
 
-export type StatusBarCommand = 'gitlens.toggleFileBlame' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showFileHistory' |
-    'gitlens.toggleCodeLens' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.diffWithWorking' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory';
+export type LineAnnotationType = 'trailing' | 'hover';
+export const LineAnnotationType = {
+    Trailing: 'trailing' as LineAnnotationType,
+    Hover: 'hover' as LineAnnotationType
+};
+
+export type StatusBarCommand = 'gitlens.toggleFileBlame' | 'gitlens.showBlameHistory' | 'gitlens.showFileHistory' | 'gitlens.toggleCodeLens' | 'gitlens.diffWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' | 'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory';
 export const StatusBarCommand = {
     BlameAnnotate: Commands.ToggleFileBlame as StatusBarCommand,
     ShowBlameHistory: Commands.ShowBlameHistory as StatusBarCommand,
@@ -103,9 +97,6 @@ export interface IAdvancedConfig {
     };
     quickPick: {
         closeOnFocusOut: boolean;
-    };
-    telemetry: {
-        enabled: boolean;
     };
     toggleWhitespace: {
         enabled: boolean;
@@ -216,7 +207,7 @@ export interface IConfig {
         file: {
             gutter: {
                 format: string;
-                dateFormat: string | null;
+                dateFormat: string;
                 compact: boolean;
                 heatmap: {
                     enabled: boolean;
@@ -234,14 +225,6 @@ export interface IConfig {
                 };
                 wholeLine: boolean;
             };
-
-            recentChanges: {
-                hover: {
-                    details: boolean;
-                    changes: boolean;
-                    wholeLine: boolean;
-                };
-            };
         };
 
         line: {
@@ -252,7 +235,7 @@ export interface IConfig {
 
             trailing: {
                 format: string;
-                dateFormat: string | null;
+                dateFormat: string;
                 hover: {
                     changes: boolean;
                     details: boolean;
@@ -267,7 +250,7 @@ export interface IConfig {
             annotationType: FileAnnotationType;
             lineHighlight: {
                 enabled: boolean;
-                locations: LineHighlightLocations[];
+                locations: BlameLineHighlightLocations[];
             };
         };
 
@@ -275,14 +258,6 @@ export interface IConfig {
             enabled: boolean;
             annotationType: LineAnnotationType;
         };
-    };
-
-    recentChanges: {
-        file: {
-            lineHighlight: {
-                locations: LineHighlightLocations[];
-            };
-        }
     };
 
     codeLens: {
@@ -301,24 +276,12 @@ export interface IConfig {
         debug: boolean;
     };
 
-    defaultDateFormat: string | null;
-
     statusBar: {
         enabled: boolean;
         alignment: 'left' | 'right';
         command: StatusBarCommand;
         format: string;
-        dateFormat: string | null;
-    };
-
-    strings: {
-        codeLens: {
-            unsavedChanges: {
-                recentChangeAndAuthors: string;
-                recentChangeOnly: string;
-                authorsOnly: string;
-            };
-        };
+        dateFormat: string;
     };
 
     theme: IThemeConfig;

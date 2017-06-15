@@ -1,13 +1,18 @@
 'use strict';
 import { Arrays, Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
+import { Commands, CopyMessageToClipboardCommandArgs, CopyShaToClipboardCommandArgs, DiffDirectoryCommandCommandArgs, DiffWithPreviousCommandArgs, Keyboard, KeyNoopCommand, Keys, ShowQuickCommitDetailsCommandArgs, StashApplyCommandArgs, StashDeleteCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem, OpenFileCommandQuickPickItem, OpenFilesCommandQuickPickItem, QuickPickItem } from './common';
-import { getGitStatusIcon, GitCommit, GitLog, GitLogCommit, GitService, GitStashCommit, GitStatusFile, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitStatusFile, RemoteResource } from '../gitService';
-import { Keyboard, KeyNoopCommand, Keys } from '../keyboard';
+import { getGitStatusIcon, GitCommit, GitLogCommit, GitService, GitStashCommit, GitStatusFileStatus, GitUri, IGitCommitInfo, IGitLog, IGitStatusFile, RemoteResource } from '../gitService';
 import { OpenRemotesCommandQuickPickItem } from './remotes';
 import * as moment from 'moment';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
 
@@ -20,7 +25,15 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
 
     constructor(commit: GitCommit, status: IGitStatusFile) {
         const icon = getGitStatusIcon(status.status);
-        const description = GitStatusFile.getFormattedDirectory(status, true);
+
+        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
+        if (!directory || directory === '.') {
+            directory = '';
+        }
+
+        const description = (status.status === 'R' && status.originalFileName)
+            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            : directory;
 
         let sha;
         let shortSha;
@@ -72,7 +85,6 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
         const uris = commit.fileStatuses.map(s => (s.status === 'D')
             ? GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, s.fileName, commit.repoPath, s.originalFileName)
             : GitService.toGitContentUri(commit.sha, commit.shortSha, s.fileName, commit.repoPath, s.originalFileName));
-
         super(uris, item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: `\u00a0 \u2014 \u00a0\u00a0 in \u00a0$(git-commit) ${commit.shortSha}`
@@ -96,7 +108,7 @@ export class OpenCommitWorkingTreeFilesCommandQuickPickItem extends OpenFilesCom
 
 export class CommitDetailsQuickPick {
 
-    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: GitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(git: GitService, commit: GitLogCommit, uri: Uri, goBackCommand?: CommandQuickPickItem, currentCommand?: CommandQuickPickItem, repoLog?: IGitLog): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.fileStatuses.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs));
 
         const stash = commit.type === 'stash';

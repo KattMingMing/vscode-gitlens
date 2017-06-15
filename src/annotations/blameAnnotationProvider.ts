@@ -2,20 +2,20 @@
 import { Iterables } from '../system';
 import { ExtensionContext, Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
-import { GitBlame, GitService, GitUri } from '../gitService';
+import { GitService, GitUri, IGitBlame } from '../gitService';
 import { WhitespaceController } from './whitespaceController';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 
-    protected _blame: Promise<GitBlame>;
+    protected _blame: Promise<IGitBlame>;
 
-    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType | undefined, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
+    constructor(context: ExtensionContext, editor: TextEditor, decoration: TextEditorDecorationType, highlightDecoration: TextEditorDecorationType | undefined, whitespaceController: WhitespaceController | undefined, protected git: GitService, protected uri: GitUri) {
         super(context, editor, decoration, highlightDecoration, whitespaceController);
 
         this._blame = this.git.getBlameForFile(this.uri);
     }
 
-    async selection(shaOrLine?: string | number, blame?: GitBlame) {
+    async selection(shaOrLine?: string | number, blame?: IGitBlame) {
         if (!this.highlightDecoration) return;
 
         if (blame === undefined) {
@@ -56,14 +56,15 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const blame = await this._blame;
         return blame !== undefined && blame.lines.length !== 0;
     }
-    protected async getBlame(requiresWhitespaceHack: boolean): Promise<GitBlame | undefined> {
+
+    protected async getBlame(requiresWhitespaceHack: boolean): Promise<IGitBlame | undefined> {
         let whitespacePromise: Promise<void> | undefined;
         // HACK: Until https://github.com/Microsoft/vscode/issues/11485 is fixed -- override whitespace (turn off)
         if (requiresWhitespaceHack) {
             whitespacePromise = this.whitespaceController && this.whitespaceController.override();
         }
 
-        let blame: GitBlame;
+        let blame: IGitBlame;
         if (whitespacePromise) {
             [blame] = await Promise.all([this._blame, whitespacePromise]);
         }

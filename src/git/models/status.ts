@@ -1,9 +1,14 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GitUri } from '../gitUri';
-import * as path from 'path';
+import * as pathModule from 'path';
 
-export interface GitStatus {
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
+
+export interface IGitStatus {
 
     branch: string;
     repoPath: string;
@@ -33,27 +38,12 @@ export class GitStatusFile implements IGitStatusFile {
         this.originalFileName = originalFileName;
     }
 
-    getFormattedDirectory(includeOriginal: boolean = false): string {
-        return GitStatusFile.getFormattedDirectory(this, includeOriginal);
-    }
-
-    getFormattedPath(separator: string = ' \u00a0\u2022\u00a0 '): string {
-        return GitUri.getFormattedPath(this.fileName, separator);
-    }
-
     getIcon() {
         return getGitStatusIcon(this.status);
     }
 
     get Uri(): Uri {
         return Uri.file(path.resolve(this.repoPath, this.fileName));
-    }
-
-    static getFormattedDirectory(status: IGitStatusFile, includeOriginal: boolean = false): string {
-        const directory = GitUri.getDirectory(status.fileName);
-        return (includeOriginal && status.status === 'R' && status.originalFileName)
-            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
-            : directory;
     }
 }
 

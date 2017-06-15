@@ -3,7 +3,6 @@ import { commands, Position, Range, TextEditor, TextEditorEdit, Uri, window } fr
 import { Commands, EditorCommand, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService, GitUri } from '../gitService';
-import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export interface ShowBlameHistoryCommandArgs {
@@ -33,7 +32,7 @@ export class ShowBlameHistoryCommand extends EditorCommand {
 
         try {
             const locations = await this.git.getBlameLocations(gitUri, args.range, args.sha, args.line);
-            if (locations === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show blame history');
+            if (locations === undefined) return window.showWarningMessage(`Unable to show blame history. File is probably not under source control`);
 
             return commands.executeCommand(BuiltInCommands.ShowReferences, uri, args.position, locations);
         }

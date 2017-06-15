@@ -1,45 +1,18 @@
 'use strict';
 import { commands, Disposable, TextDocumentShowOptions, TextEditor, TextEditorEdit, Uri, window, workspace } from 'vscode';
+import { BuiltInCommands } from '../constants';
 import { Logger } from '../logger';
-import { Telemetry } from '../telemetry';
 
-export type Commands = 'gitlens.closeUnchangedFiles' |
-    'gitlens.copyMessageToClipboard' |
-    'gitlens.copyShaToClipboard' |
-    'gitlens.diffDirectory' |
-    'gitlens.diffWithBranch' |
-    'gitlens.diffWithNext' |
-    'gitlens.diffWithPrevious' |
-    'gitlens.diffLineWithPrevious' |
-    'gitlens.diffWithWorking' |
-    'gitlens.diffLineWithWorking' |
-    'gitlens.openChangedFiles' |
-    'gitlens.openBranchInRemote' |
-    'gitlens.openCommitInRemote' |
-    'gitlens.openFileInRemote' |
-    'gitlens.openInRemote' |
-    'gitlens.openRepoInRemote' |
-    'gitlens.resetSuppressedWarnings' |
-    'gitlens.showBlameHistory' |
-    'gitlens.showCommitSearch' |
-    'gitlens.showFileBlame' |
-    'gitlens.showFileHistory' |
-    'gitlens.showLastQuickPick' |
-    'gitlens.showLineBlame' |
-    'gitlens.showQuickBranchHistory' |
-    'gitlens.showQuickCommitDetails' |
-    'gitlens.showQuickCommitFileDetails' |
-    'gitlens.showQuickFileHistory' |
-    'gitlens.showQuickRepoHistory' |
-    'gitlens.showQuickRepoStatus' |
-    'gitlens.showQuickStashList' |
-    'gitlens.stashApply' |
-    'gitlens.stashDelete' |
-    'gitlens.stashSave' |
-    'gitlens.toggleCodeLens' |
-    'gitlens.toggleFileBlame' |
-    'gitlens.toggleFileRecentChanges' |
-    'gitlens.toggleLineBlame';
+export type Commands = 'gitlens.closeUnchangedFiles' | 'gitlens.copyMessageToClipboard' | 'gitlens.copyShaToClipboard' |
+    'gitlens.diffDirectory' | 'gitlens.diffWithBranch' | 'gitlens.diffWithNext' | 'gitlens.diffWithPrevious' | 'gitlens.diffLineWithPrevious' | 'gitlens.diffWithWorking' | 'gitlens.diffLineWithWorking' |
+    'gitlens.openChangedFiles' | 'gitlens.openBranchInRemote' | 'gitlens.openCommitInRemote' | 'gitlens.openFileInRemote' | 'gitlens.openInRemote' | 'gitlens.openRepoInRemote' |
+    'gitlens.showBlameHistory' | 'gitlens.showCommitSearch' | 'gitlens.showFileBlame' | 'gitlens.showFileHistory' |
+    'gitlens.showLastQuickPick' | 'gitlens.showLineBlame' | 'gitlens.showQuickBranchHistory' |
+    'gitlens.showQuickCommitDetails' | 'gitlens.showQuickCommitFileDetails' |
+    'gitlens.showQuickFileHistory' | 'gitlens.showQuickRepoHistory' |
+    'gitlens.showQuickRepoStatus' | 'gitlens.showQuickStashList' |
+    'gitlens.stashApply' | 'gitlens.stashDelete' | 'gitlens.stashSave' |
+    'gitlens.toggleCodeLens' | 'gitlens.toggleFileBlame' | 'gitlens.toggleLineBlame';
 export const Commands = {
     CloseUnchangedFiles: 'gitlens.closeUnchangedFiles' as Commands,
     CopyMessageToClipboard: 'gitlens.copyMessageToClipboard' as Commands,
@@ -57,13 +30,12 @@ export const Commands = {
     OpenFileInRemote: 'gitlens.openFileInRemote' as Commands,
     OpenInRemote: 'gitlens.openInRemote' as Commands,
     OpenRepoInRemote: 'gitlens.openRepoInRemote' as Commands,
-    ResetSuppressedWarnings: 'gitlens.resetSuppressedWarnings' as Commands,
+    ShowFileBlame: 'gitlens.showFileBlame' as Commands,
+    ShowLineBlame: 'gitlens.showLineBlame' as Commands,
     ShowBlameHistory: 'gitlens.showBlameHistory' as Commands,
     ShowCommitSearch: 'gitlens.showCommitSearch' as Commands,
-    ShowFileBlame: 'gitlens.showFileBlame' as Commands,
     ShowFileHistory: 'gitlens.showFileHistory' as Commands,
     ShowLastQuickPick: 'gitlens.showLastQuickPick' as Commands,
-    ShowLineBlame: 'gitlens.showLineBlame' as Commands,
     ShowQuickCommitDetails: 'gitlens.showQuickCommitDetails' as Commands,
     ShowQuickCommitFileDetails: 'gitlens.showQuickCommitFileDetails' as Commands,
     ShowQuickFileHistory: 'gitlens.showQuickFileHistory' as Commands,
@@ -74,16 +46,30 @@ export const Commands = {
     StashApply: 'gitlens.stashApply' as Commands,
     StashDelete: 'gitlens.stashDelete' as Commands,
     StashSave: 'gitlens.stashSave' as Commands,
-    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands,
     ToggleFileBlame: 'gitlens.toggleFileBlame' as Commands,
-    ToggleFileRecentChanges: 'gitlens.toggleFileRecentChanges' as Commands,
-    ToggleLineBlame: 'gitlens.toggleLineBlame' as Commands
+    ToggleLineBlame: 'gitlens.toggleLineBlame' as Commands,
+    ToggleCodeLens: 'gitlens.toggleCodeLens' as Commands
 };
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
     if (uri instanceof Uri) return uri;
     if (editor === undefined || editor.document === undefined) return undefined;
     return editor.document.uri;
+}
+
+export type CommandContext = 'gitlens:canToggleCodeLens' | 'gitlens:enabled' | 'gitlens:hasRemotes' | 'gitlens:isBlameable' | 'gitlens:isRepository' | 'gitlens:isTracked' | 'gitlens:key';
+export const CommandContext = {
+    CanToggleCodeLens: 'gitlens:canToggleCodeLens' as CommandContext,
+    Enabled: 'gitlens:enabled' as CommandContext,
+    HasRemotes: 'gitlens:hasRemotes' as CommandContext,
+    IsBlameable: 'gitlens:isBlameable' as CommandContext,
+    IsRepository: 'gitlens:isRepository' as CommandContext,
+    IsTracked: 'gitlens:isTracked' as CommandContext,
+    Key: 'gitlens:key' as CommandContext
+};
+
+export function setCommandContext(key: CommandContext | string, value: any) {
+    return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
 export abstract class Command extends Disposable {
@@ -100,7 +86,6 @@ export abstract class Command extends Disposable {
     }
 
     protected _execute(...args: any[]): any {
-        Telemetry.trackEvent(this.command);
         return this.execute(...args);
     }
 
@@ -121,7 +106,6 @@ export abstract class EditorCommand extends Disposable {
     }
 
     private _execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
-        Telemetry.trackEvent(this.command);
         return this.execute(editor, edit, ...args);
     }
 

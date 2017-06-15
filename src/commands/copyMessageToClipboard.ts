@@ -4,7 +4,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { copy } from 'copy-paste';
+// import { copy } from 'copy-paste';
 
 export interface CopyMessageToClipboardCommandArgs {
     message?: string;
@@ -29,7 +29,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.message = Iterables.first(log.commits.values()).message;
-                copy(args.message);
+                // copy(args.message);
                 return undefined;
             }
 
@@ -67,7 +67,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            copy(args.message);
+            // copy(args.message);
             return undefined;
         }
         catch (ex) {

@@ -3,7 +3,6 @@ import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vsco
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
-import { Messages } from '../messages';
 import { Logger } from '../logger';
 
 export interface DiffLineWithWorkingCommandArgs {
@@ -33,7 +32,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                if (blame === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = blame.commit;
                 // If the line is uncommitted, find the previous commit

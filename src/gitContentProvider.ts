@@ -3,7 +3,13 @@ import { ExtensionContext, TextDocumentContentProvider, Uri, window } from 'vsco
 import { DocumentSchemes } from './constants';
 import { GitService } from './gitService';
 import { Logger } from './logger';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from './path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class GitContentProvider implements TextDocumentContentProvider {
 
@@ -15,7 +21,8 @@ export class GitContentProvider implements TextDocumentContentProvider {
         const data = GitService.fromGitContentUri(uri);
         const fileName = data.originalFileName || data.fileName;
         try {
-            let text = await this.git.getVersionedFileText(data.repoPath, fileName, data.sha);
+            console.log(`getVersionedFiletext -- data: ${JSON.stringify(data)} -- filename: ${fileName}`);
+            let text = await this.git.getVersionedFileText(data.repoPath, fileName, data.sha)
             if (data.decoration) {
                 text = `${data.decoration}\n${text}`;
             }

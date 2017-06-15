@@ -5,7 +5,6 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
 
 export interface DiffDirectoryCommandCommandArgs {
@@ -32,7 +31,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
         try {
             const repoPath = await this.git.getRepoPathFromUri(uri);
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open directory compare`);
+            if (!repoPath) return window.showWarningMessage(`Unable to open directory compare`);
 
             if (!args.shaOrBranch1) {
                 const branches = await this.git.getBranches(repoPath);

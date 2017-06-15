@@ -1,9 +1,9 @@
 'use strict';
 import { Strings } from '../system';
 import { DecorationOptions, Range } from 'vscode';
-import { FileAnnotationType } from './annotationController';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Annotations, endOfLineIndex } from './annotations';
+import { FileAnnotationType } from '../configuration';
 import { ICommitFormatOptions } from '../gitService';
 import * as moment from 'moment';
 
@@ -25,7 +25,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             }, {} as { [token: string]: ICommitFormatOptions });
 
         const options: ICommitFormatOptions = {
-            dateFormat: cfg.dateFormat === null ? this._config.defaultDateFormat : cfg.dateFormat,
+            dateFormat: cfg.dateFormat,
             tokenOptions: tokenOptions
         };
 
@@ -33,7 +33,6 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const offset = this.uri.offset;
         let previousLine: string | undefined = undefined;
         const renderOptions = Annotations.gutterRenderOptions(this._config.theme, cfg.heatmap);
-        const dateFormat = this._config.defaultDateFormat;
 
         const decorations: DecorationOptions[] = [];
 
@@ -59,7 +58,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             decorations.push(gutter);
 
             if (cfg.hover.details) {
-                const details = Annotations.detailsHover(commit, dateFormat);
+                const details = Annotations.detailsHover(commit);
                 details.range = cfg.hover.wholeLine
                     ? this.editor.document.validateRange(new Range(line, 0, line, endOfLineIndex))
                     : gutter.range;
@@ -68,7 +67,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         }
 
         if (decorations.length) {
-            this.editor.setDecorations(this.decoration!, decorations);
+            this.editor.setDecorations(this.decoration, decorations);
         }
 
         this.selection(shaOrLine, blame);

@@ -1,10 +1,9 @@
 'use strict';
 import { Arrays } from '../system';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
-import { GitBlameCommit, GitService, GitUri } from '../gitService';
+import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
@@ -13,7 +12,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenCommitInRemote);
     }
 
-    async execute(editor: TextEditor, uri?: Uri) {
+    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri) {
         uri = getCommandUri(uri, editor);
         if (uri === undefined) return undefined;
         if (editor !== undefined && editor.document !== undefined && editor.document.isDirty) return undefined;
@@ -28,12 +27,12 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
             if (blameline < 0) return undefined;
 
             const blame = await this.git.getBlameForLine(gitUri, blameline);
-            if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open commit in remote provider');
+            if (blame === undefined) return window.showWarningMessage(`Unable to open commit in remote provider. File is probably not under source control`);
 
             let commit = blame.commit;
             // If the line is uncommitted, find the previous commit
             if (commit.isUncommitted) {
-                commit = new GitBlameCommit(commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message, []);
+                commit = new GitCommit(commit.type, commit.repoPath, commit.previousSha!, commit.previousFileName!, commit.author, commit.date, commit.message);
             }
 
             const remotes = Arrays.uniqueBy(await this.git.getRemotes(gitUri.repoPath), _ => _.url, _ => !!_.provider);

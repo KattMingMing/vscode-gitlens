@@ -2,9 +2,9 @@
 import { findGitPath, IGit } from './gitLocator';
 import { Logger } from '../logger';
 import { spawnPromise } from 'spawn-rx';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as tmp from 'tmp';
+// import * as fs from 'fs';
+import * as pathModule from 'path';
+// import * as tmp from 'tmp';
 import * as iconv from 'iconv-lite';
 
 export { IGit };
@@ -15,6 +15,13 @@ export * from './parsers/logParser';
 export * from './parsers/stashParser';
 export * from './parsers/statusParser';
 export * from './remotes/provider';
+
+// PATCH(sourcegraph)
+import { fetchForGitCmd } from '../api/fetch';
+import { env, scm, workspace } from 'vscode';
+import { path as localPath } from '../path';
+
+const path = env.appName === 'Sourcegraph' ? localPath : pathModule;
 
 let git: IGit;
 
@@ -35,6 +42,12 @@ const GitWarnings = [
 ];
 
 async function gitCommand(options: { cwd: string, encoding?: string }, ...args: any[]) {
+    // PATCH(sourcegraph): Check env to see how we should run the command.
+    if (env.appName === 'Sourcegraph') {
+        const repo = options.cwd.replace('repo://', '');
+        return fetchForGitCmd(repo, args);
+    }
+
     try {
         // Fixes https://github.com/eamodio/vscode-gitlens/issues/73
         // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -79,6 +92,11 @@ export class Git {
     }
 
     static async getRepoPath(cwd: string | undefined) {
+        // PATCH(sourcegraph): Use rootpath as workspace path instead of fetching from Git.
+        if (env.appName === 'Sourcegraph') {
+            return workspace.rootPath!;
+        }
+
         if (cwd === undefined) return '';
 
         const data = await gitCommand({ cwd }, 'rev-parse', '--show-toplevel');
@@ -88,29 +106,7 @@ export class Git {
     }
 
     static async getVersionedFile(repoPath: string | undefined, fileName: string, branchOrSha: string) {
-        const data = await Git.show(repoPath, fileName, branchOrSha, 'binary');
-
-        const suffix = Git.isSha(branchOrSha) ? branchOrSha.substring(0, 8) : branchOrSha;
-        const ext = path.extname(fileName);
-        return new Promise<string>((resolve, reject) => {
-            tmp.file({ prefix: `${path.basename(fileName, ext)}-${suffix}__`, postfix: ext },
-                (err, destination, fd, cleanupCallback) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    Logger.log(`getVersionedFile('${repoPath}', '${fileName}', ${branchOrSha}); destination=${destination}`);
-                    fs.appendFile(destination, data, { encoding: 'binary' }, err => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-
-                        resolve(destination);
-                    });
-                });
-        });
+        return Git.show(repoPath, fileName, branchOrSha);
     }
 
     static isSha(sha: string) {
@@ -122,10 +118,17 @@ export class Git {
     }
 
     static normalizePath(fileName: string, repoPath?: string) {
+        const path = repoPath || workspace.rootPath!;
+        if (path.startsWith('repo://')) {
+            const parts = path.split('/').slice(2).join('/');
+            return fileName && fileName.replace('repo://', '').replace(`/${parts}/`, '');
+        }
+
         return fileName && fileName.replace(/\\/g, '/');
     }
 
     static splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
+        fileName = fileName.replace(/^\/+/g, '');
         if (repoPath) {
             fileName = this.normalizePath(fileName);
             repoPath = this.normalizePath(repoPath);
@@ -133,14 +136,19 @@ export class Git {
             const normalizedRepoPath = (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
             if (fileName.toLowerCase().startsWith(normalizedRepoPath)) {
                 fileName = fileName.substring(normalizedRepoPath.length);
+            } else {
+                // PATCH(sourcegraph): Add support for our URI scheme
+                const tmpFile = `github.com/${fileName}`;
+                if (tmpFile.toLowerCase().startsWith(normalizedRepoPath)) {
+                    fileName = tmpFile.substring(normalizedRepoPath.length);
+                }
             }
         }
         else {
             repoPath = this.normalizePath(extract ? path.dirname(fileName) : repoPath!);
             fileName = this.normalizePath(extract ? path.basename(fileName) : fileName);
         }
-
-        return [ fileName, repoPath ];
+        return [fileName, repoPath];
     }
 
     static validateVersion(major: number, minor: number): boolean {
@@ -161,12 +169,21 @@ export class Git {
 
         if (sha) {
             params.push(sha);
+        } else {
+            const specifier = (scm as any).activeProvider.revision.specifier || (scm as any).activeProvider.revision.rawSpecifier;
+            params.push(specifier);
         }
 
         return gitCommand({ cwd: root }, ...params, `--`, file);
     }
 
     static branch(repoPath: string, all: boolean) {
+        // PATCH(sourcegraph): Resolve branch from scm active provider.
+        if (env.appName === 'Sourcegraph') {
+            return '* ' + ((scm as any).activeProvider.revision.specifier || (scm as any).activeProvider.revision.rawSpecifier);
+        }
+        // end
+
         const params = [`branch`];
         if (all) {
             params.push(`-a`);
@@ -299,11 +316,16 @@ export class Git {
     }
 
     static show(repoPath: string | undefined, fileName: string, branchOrSha: string, encoding?: string) {
+        console.log(`show - ${fileName}`);
         const [file, root] = Git.splitPath(fileName, repoPath);
         branchOrSha = branchOrSha.replace('^', '');
 
-        if (Git.isUncommitted(branchOrSha)) return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
-        return gitCommand({ cwd: root, encoding: encoding || defaultEncoding }, 'show', `${branchOrSha}:./${file}`);
+        if (Git.isUncommitted(branchOrSha)) {
+            console.log(`rejecting the promise!`);
+            return Promise.reject(new Error(`sha=${branchOrSha} is uncommitted`));
+        }
+        console.log(`runnin for file!`, file);
+        return gitCommand({ cwd: root, encoding: encoding || defaultEncoding }, 'show', `${branchOrSha}:${file}`);
     }
 
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {

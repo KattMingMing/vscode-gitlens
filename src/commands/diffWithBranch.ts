@@ -4,9 +4,14 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickPicks';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface DiffWithBranchCommandArgs {
     line?: number;
@@ -28,7 +33,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         args.line = args.line || (editor === undefined ? 0 : editor.selection.active.line);
 
         const gitUri = await GitUri.fromUri(uri, this.git);
-        if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open branch compare`);
+        if (!gitUri.repoPath) return window.showWarningMessage(`Unable to open branch compare`);
 
         const branches = await this.git.getBranches(gitUri.repoPath);
         const pick = await BranchesQuickPick.show(branches, `Compare ${path.basename(gitUri.fsPath)} to \u2026`, args.goBackCommand);

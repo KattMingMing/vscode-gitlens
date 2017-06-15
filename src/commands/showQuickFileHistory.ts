@@ -1,15 +1,20 @@
 'use strict';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitLog, GitService, GitUri } from '../gitService';
+import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, FileHistoryQuickPick } from '../quickPicks';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
-import { Messages } from '../messages';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface ShowQuickFileHistoryCommandArgs {
-    log?: GitLog;
+    log?: IGitLog;
     maxCount?: number;
     range?: Range;
 
@@ -37,7 +42,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         try {
             if (args.log === undefined) {
                 args.log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha, args.maxCount, args.range);
-                if (args.log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to show file history');
+                if (args.log === undefined) return window.showWarningMessage(`Unable to show file history. File is probably not under source control`);
             }
 
             if (progressCancellation.token.isCancellationRequested) return undefined;

@@ -5,8 +5,13 @@ import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { BuiltInCommands } from '../constants';
 import { GitLogCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface DiffWithNextCommandArgs {
     commit?: GitLogCommit;
@@ -38,8 +43,8 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha !== undefined ? undefined : 2, args.range!);
-                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, args.range!);
+                if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
             }

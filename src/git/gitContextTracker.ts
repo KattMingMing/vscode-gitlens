@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Event, EventEmitter, TextDocument, TextDocumentChangeEvent, TextEditor, window, workspace } from 'vscode';
-import { TextDocumentComparer } from '../comparers';
-import { CommandContext, setCommandContext } from '../constants';
+import { CommandContext, setCommandContext } from '../commands';
+import { textDocumentComparer } from '../comparers';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
 
@@ -69,19 +69,18 @@ export class GitContextTracker extends Disposable {
     }
 
     private _onTextDocumentChanged(e: TextDocumentChangeEvent) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e && e.document)) return;
+        if (!this._editor || !textDocumentComparer.equals(this._editor.document, e && e.document)) return;
 
         // Can't unsubscribe here because undo doesn't trigger any other event
         // this._unsubscribeToDocumentChanges();
         // this.updateBlameability(false);
 
-        // TODO: Rework this once https://github.com/Microsoft/vscode/issues/27231 is released in v1.13
         // We have to defer because isDirty is not reliable inside this event
         setTimeout(() => this._updateBlameability(!e.document.isDirty), 1);
     }
 
     private _onTextDocumentSaved(e: TextDocument) {
-        if (!TextDocumentComparer.equals(this._editor && this._editor.document, e)) return;
+        if (!this._editor || !textDocumentComparer.equals(this._editor && this._editor.document, e)) return;
 
         // Don't need to resubscribe as we aren't unsubscribing on document changes anymore
         // this._subscribeToDocumentChanges();
@@ -114,15 +113,13 @@ export class GitContextTracker extends Disposable {
 
     private async _updateContextHasRemotes(uri: GitUri | undefined) {
         try {
-            let repoPath = this.git.repoPath;
-            if (uri !== undefined && this.git.isTrackable(uri)) {
-                repoPath = uri.repoPath || this.git.repoPath;
-            }
-
             let hasRemotes = false;
-            if (repoPath) {
-                const remotes = await this.git.getRemotes(repoPath);
-                hasRemotes = remotes.length !== 0;
+            if (uri && this.git.isTrackable(uri)) {
+                const repoPath = uri.repoPath || this.git.repoPath;
+                if (repoPath) {
+                    const remotes = await this.git.getRemotes(repoPath);
+                    hasRemotes = remotes.length !== 0;
+                }
             }
 
             setCommandContext(CommandContext.HasRemotes, hasRemotes);
@@ -141,7 +138,6 @@ export class GitContextTracker extends Disposable {
             if (blameable) {
                 blameable =  uri === undefined ? false : await this.git.getBlameability(uri);
             }
-
             this._updateBlameability(blameable, true);
         }
         catch (ex) {

@@ -1,15 +1,14 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCachedCommand, Commands, getCommandUri } from './common';
-import { GitLog, GitService, GitUri } from '../gitService';
+import { GitService, GitUri, IGitLog } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickPicks';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickBranchHistoryCommandArgs {
     branch?: string;
-    log?: GitLog;
+    log?: IGitLog;
     maxCount?: number;
 
     goBackCommand?: CommandQuickPickItem;
@@ -34,7 +33,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
         let progressCancellation = args.branch === undefined ? undefined : BranchHistoryQuickPick.showProgress(args.branch);
         try {
             const repoPath = gitUri === undefined ? this.git.repoPath : gitUri.repoPath;
-            if (!repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to show branch history`);
+            if (!repoPath) return window.showWarningMessage(`Unable to show branch history`);
 
             if (args.branch === undefined) {
                 const branches = await this.git.getBranches(repoPath);

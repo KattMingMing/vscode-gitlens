@@ -1,6 +1,12 @@
 'use strict';
 import { findActualExecutable, spawnPromise } from 'spawn-rx';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface IGit {
     path: string;
@@ -62,6 +68,13 @@ function findGitWin32(): Promise<IGit> {
 }
 
 export async function findGitPath(path?: string): Promise<IGit> {
+    if (env.appName === 'Sourcegraph') {
+        return {
+            path: 'git',
+            version: '0.0.0',
+        };
+    }
+
     try {
         return await findSpecificGit(path || 'git');
     }

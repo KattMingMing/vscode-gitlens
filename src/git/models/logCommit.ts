@@ -1,8 +1,14 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GitCommit, GitCommitType } from './commit';
+import { GitCommit, GitCommitType, IGitCommitLine } from './commit';
 import { GitStatusFileStatus, IGitStatusFile } from './status';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class GitLogCommit extends GitCommit {
 
@@ -23,11 +29,12 @@ export class GitLogCommit extends GitCommit {
         message: string,
         status?: GitStatusFileStatus,
         fileStatuses?: IGitStatusFile[],
+        lines?: IGitCommitLine[],
         originalFileName?: string,
         previousSha?: string,
         previousFileName?: string
     ) {
-        super(type, repoPath, sha, fileName, author, date, message, originalFileName, previousSha, previousFileName);
+        super(type, repoPath, sha, fileName, author, date, message, lines, originalFileName, previousSha, previousFileName);
 
         this.fileNames = this.fileName;
 

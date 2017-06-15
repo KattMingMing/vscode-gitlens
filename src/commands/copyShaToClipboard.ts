@@ -4,7 +4,7 @@ import { TextEditor, Uri, window } from 'vscode';
 import { ActiveEditorCommand, Commands, getCommandUri } from './common';
 import { GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { copy } from 'copy-paste';
+// import { copy } from 'copy-paste';
 
 export interface CopyShaToClipboardCommandArgs {
     sha?: string;
@@ -28,7 +28,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 if (!log) return undefined;
 
                 args.sha = Iterables.first(log.commits.values()).sha;
-                copy(args.sha);
+                // copy(args.sha);
                 return undefined;
             }
 
@@ -53,7 +53,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            copy(args.sha);
+            // copy(args.sha);
             return undefined;
         }
         catch (ex) {

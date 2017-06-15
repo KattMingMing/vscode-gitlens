@@ -1,6 +1,5 @@
 'use strict';
 import { Disposable, env, version, workspace } from 'vscode';
-import { ExtensionKey, IConfig } from './configuration';
 import * as os from 'os';
 
 let _reporter: TelemetryReporter;
@@ -8,28 +7,21 @@ let _reporter: TelemetryReporter;
 export class Telemetry extends Disposable {
 
     static configure(key: string) {
-        const cfg = workspace.getConfiguration().get<IConfig>(ExtensionKey)!;
-        if (!cfg.advanced.telemetry.enabled || !workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) return;
+        if (!workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', false)) return;
 
         _reporter = new TelemetryReporter(key);
     }
 
     static setContext(context?: { [key: string]: string }) {
-        if (_reporter === undefined) return;
-
-        _reporter.setContext(context);
+        _reporter && _reporter.setContext(context);
     }
 
     static trackEvent(name: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number; }) {
-        if (_reporter === undefined) return;
-
-        _reporter.trackEvent(name, properties, measurements);
+        _reporter && _reporter.trackEvent(name, properties, measurements);
     }
 
     static trackException(ex: Error) {
-        if (_reporter === undefined) return;
-
-        _reporter.trackException(ex);
+        _reporter && _reporter.trackException(ex);
     }
 }
 
@@ -52,12 +44,11 @@ export class TelemetryReporter {
         }
         else {
             this._client = this.appInsights.setup(key)
-                .setAutoCollectRequests(false)
-                .setAutoCollectPerformance(false)
-                .setAutoCollectExceptions(false)
-                .setAutoCollectDependencies(false)
                 .setAutoCollectConsole(false)
-                .setAutoDependencyCorrelation(false)
+                .setAutoCollectDependencies(false)
+                .setAutoCollectExceptions(false)
+                .setAutoCollectPerformance(false)
+                .setAutoCollectRequests(false)
                 .setOfflineMode(true)
                 .start()
                 .client;

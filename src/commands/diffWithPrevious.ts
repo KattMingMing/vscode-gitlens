@@ -6,8 +6,14 @@ import { BuiltInCommands } from '../constants';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import * as path from 'path';
+import * as moment from 'moment';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface DiffWithPreviousCommandArgs {
     commit?: GitCommit;
@@ -34,13 +40,13 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             try {
                 const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
 
-                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha !== undefined ? undefined : 2, args.range!);
-                if (log === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                const log = await this.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, undefined, sha ? undefined : 2, args.range!);
+                if (log === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
 
-                // If the sha is missing and the file is uncommitted, then treat it as a DiffWithWorking
-                if (gitUri.sha === undefined && await this.git.isFileUncommitted(gitUri)) return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
+                // If the sha is missing, treat it as a DiffWithWorking
+                if (gitUri.sha === undefined) return commands.executeCommand(Commands.DiffWithWorking, uri, { commit: args.commit, showOptions: args.showOptions } as DiffWithWorkingCommandArgs);
             }
             catch (ex) {
                 Logger.error(ex, 'DiffWithPreviousCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
@@ -48,17 +54,21 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             }
         }
 
-        if (args.commit.previousSha === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage(args.commit);
+        if (args.commit.previousSha === undefined) return window.showInformationMessage(`Commit ${args.commit.shortSha} (${args.commit.author}, ${moment(args.commit.date).fromNow()}) has no previous commit`);
 
         try {
-            const [rhs, lhs] = await Promise.all([
-                this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha),
-                this.git.getVersionedFile(args.commit.repoPath, args.commit.previousUri.fsPath, args.commit.previousSha)
-            ]);
-
+            // const [rhs, lhs] = await Promise.all([
+            //     this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha),
+            //     this.git.getVersionedFile(args.commit.repoPath, args.commit.previousUri.fsPath, args.commit.previousSha)
+            // ]);
+            const commit = args.commit;
+            const lhs = GitService.toGitContentUri(commit);
+            const rhs = GitService.toGitContentUri(commit.previousSha!, commit.previousShortSha!, commit.previousFileName!, commit.repoPath, commit.previousFileName);
+            console.log(`lhs`, lhs);
+            console.log(`rhs`, rhs);
             await commands.executeCommand(BuiltInCommands.Diff,
-                Uri.file(lhs),
-                Uri.file(rhs),
+                lhs,
+                rhs,
                 `${path.basename(args.commit.previousUri.fsPath)} (${args.commit.previousShortSha}) \u2194 ${path.basename(args.commit.uri.fsPath)} (${args.commit.shortSha})`,
                 args.showOptions);
 

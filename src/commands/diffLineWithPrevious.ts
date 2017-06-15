@@ -6,8 +6,13 @@ import { DiffWithPreviousCommandArgs } from './diffWithPrevious';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 import { GitCommit, GitService, GitUri } from '../gitService';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import * as path from 'path';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export interface DiffLineWithPreviousCommandArgs {
     commit?: GitCommit;
@@ -36,7 +41,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 const blame = await this.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                if (blame === undefined) return window.showWarningMessage(`Unable to open compare. File is probably not under source control`);
 
                 args.commit = blame.commit;
 
@@ -72,7 +77,8 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 this.git.getVersionedFile(gitUri.repoPath, gitUri.fsPath, gitUri.sha!),
                 this.git.getVersionedFile(args.commit.repoPath, args.commit.uri.fsPath, args.commit.sha)
             ]);
-
+            console.log(`loggin rhs`, rhs);
+            console.log(`loggin lhs`, lhs);
             await commands.executeCommand(BuiltInCommands.Diff,
                 Uri.file(lhs),
                 Uri.file(rhs),

@@ -1,17 +1,30 @@
 'use strict';
 import { Iterables } from '../system';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
-import { Commands, DiffWithWorkingCommandArgs, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
+import { Commands, DiffWithWorkingCommandArgs, Keyboard, Keys, OpenChangedFilesCommandArgs, ShowQuickBranchHistoryCommandArgs, ShowQuickRepoStatusCommandArgs, ShowQuickStashListCommandArgs } from '../commands';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, OpenFileCommandQuickPickItem, QuickPickItem } from './common';
-import { GitStatus, GitStatusFile, GitUri } from '../gitService';
-import { Keyboard, Keys } from '../keyboard';
-import * as path from 'path';
+import { GitService, GitStatusFile, GitUri, IGitStatus } from '../gitService';
+import * as pathModule from 'path';
+
+// PATCH(sourcegraph) Add path
+import { path as pathLocal } from '../path';
+import { env } from 'vscode';
+
+const path = env.appName === 'Sourcegraph' ? pathLocal : pathModule;
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
 
     constructor(status: GitStatusFile, item?: QuickPickItem) {
         const icon = status.getIcon();
-        const description = status.getFormattedDirectory(true);
+
+        let directory: string | undefined = GitService.normalizePath(path.dirname(status.fileName));
+        if (!directory || directory === '.') {
+            directory = '';
+        }
+
+        const description = (status.status === 'R' && status.originalFileName)
+            ? `${directory} \u00a0\u2190\u00a0 ${status.originalFileName}`
+            : directory;
 
         super(status.Uri, item || {
             label: `${status.staged ? '$(check)' : '\u00a0\u00a0\u00a0'}\u00a0\u00a0${icon}\u00a0\u00a0\u00a0${path.basename(status.fileName)}`,
@@ -35,7 +48,6 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
     constructor(statuses: GitStatusFile[], item?: QuickPickItem) {
         const uris = statuses.map(_ => _.Uri);
-
         super(item || {
             label: `$(file-symlink-file) Open Changed Files`,
             description: ''
@@ -51,7 +63,7 @@ export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
 
 export class RepoStatusQuickPick {
 
-    static async show(status: GitStatus, goBackCommand?: CommandQuickPickItem): Promise<OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem | undefined> {
+    static async show(status: IGitStatus, goBackCommand?: CommandQuickPickItem): Promise<OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem | undefined> {
         // Sort the status by staged and then filename
         const files = status.files;
         files.sort((a, b) => (a.staged ? -1 : 1) - (b.staged ? -1 : 1) || a.fileName.localeCompare(b.fileName));
